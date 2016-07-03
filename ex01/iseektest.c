@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <fcntl.h>
 #include <unistd.h>
-#include <strings.h>
+#include <string.h>
 
 #define NAMELENGTH 11
 #define NROOMS 10
@@ -14,22 +14,23 @@ off_t offset = 0;
 
 char *getoccupier(int roomno){
 	ssize_t nread;
-
 	if((infile = open("residents", O_RDONLY)) == -1)
 		return NULL;
 
+	offset = roomno * NAMELENGTH;
 	if(lseek(infile, offset, SEEK_SET) == -1)
 		return NULL;
+
 	if((nread = read (infile, namebuf, NAMELENGTH)) <= 0)
 		return NULL;
-	if(namebuf[0] == 10){
-		roominfo[roomno-1] = 0;
-		offset += 1;
-		return "EMPTY ROOM";
+
+	if(namebuf[0] == ' '){
+		roominfo[roomno] = 0;
+		close(infile);
+		return "* FREE *";
 	}
 	else{
-		roominfo[roomno-1] = 1;
-		offset += 11;
+		roominfo[roomno] = 1;
 		namebuf[nread -1] = '\0';
 	}
 	close(infile);
@@ -40,15 +41,15 @@ void printhotel(void){
 	char *p;
 	offset = 0;
 	printf("---------- HOTEL ROOM INFO ----------\n");
-	for(i=1; i< NROOMS; i++){
-		if(p = getoccupier(i))
+	for(i=1; i<= NROOMS; i++){
+		if(p = getoccupier(i-1))
 			printf("\t Room %2d : %s\n", i, p);
 		else
 			printf("ERROR on room %d\n", i);
 	}
 	printf("-------------------------------------\n");
 }
-int emptyroom(void){
+int minemptyroom(void){
 	int i;
 	int temp = -1;
 	for(i=0;i<NROOMS;i++){
@@ -57,59 +58,77 @@ int emptyroom(void){
 			break;
 		}
 	}
-
 	return temp+1;
 }
-int addguest(int num, char* name){
+int emptyroom(void){
 	int i;
-	ssize_t nread;
-	if(roominfo[num-1] != 0){
-		printf("%d Room Not Free\n", num);
+	if(minemptyroom() == 0){
+		printf("\t     NOT FREE ROOM!\n\n");
 		return -1;
 	}
-	offset = 0;
-	for(i=0;i<num;i++){
-		if(roominfo[i] == 1)	offset += 11;
-		else	offset += 1;
+	else{
+		printf("\t     *** FREE ROOM ***\n");
+		for(i=0;i<NROOMS;i++)
+			if(roominfo[i] == 0)	printf("\t\tROOM %2d\n", i+1);
+		printf("\t     *****************\n");
 	}
-	name[NAMELENGTH-1] = 10;
-	if((infile = open("residents", O_RDONLY)) == -1){
-		printf("OPEN ERROR\n");
-		return -1;
-	}
-	if(lseek(infile, offset, SEEK_SET) == -1){
-		printf("lseek ERROR\n");
-		return -1;
-	}
-	if(write(infile, namebuf, strlen(name)) == -1)
-	{
-		printf("write ERROR\n");
-		return -1;
-	}
+	return 0;
+}
 
+int addguest(int num,char* name){
+	int i, m_text_size;
+	ssize_t nread;
+	char temp_name[10];
+	if(roominfo[num-1] != 0){
+		printf("\t ***** %d Room Not Free *****\n\n", num);
+		return 0;
+	}
+	offset = (num -1) * NAMELENGTH;
+	if((m_text_size = strlen(name)) >= 11)
+		for(i=0;i<10;i++)	temp_name[i] = name[i];
+	else{
+		for(i=0;i<m_text_size-1;i++)	temp_name[i] = name[i];
+		for(i=m_text_size-1;i<10;i++)	temp_name[i] = ' ';
+	}	
+
+	if((infile = open("residents", O_WRONLY)) == -1)
+		return -1;
+	
+	if(lseek(infile, offset, SEEK_SET) == -1)
+		return -1;
+	if(write(infile, temp_name, 10) == -1)
+		return -1;
+
+	close(infile);
 	return 0;
 }
 int main(void){
-	int num = -1;
+	int empty, num = 1;
 	int guestnum;
-	char guestname[NAMELENGTH];
-	while(num < 2){
+	char guestname[100];
+	while(1){
 		printhotel();
-		printf("Select number[ 0 : Q2.3, 1 : Q.2.4 , 2 : EXIT ] >> ");
+		printf("Select number[ 1 : Q2.3, 2 : Q.2.4 , 3 : EXIT ] >> ");
 		scanf("%d", &num);
-		if(num == 0){
-			printf("\t * Question 2.9\n");
-			printf("\t Free Room min : %d\n\n", emptyroom());
+		if(num == 1){
+			printf("\n\t ***** Question 2.9 *****\n");
+			if((empty = minemptyroom()) == 0)	printf("\t     Not Free Room!\n\n");
+			else	printf("\t    Free Room min : %d\n\n", empty);
 		}
 		else if(num == 2){
-			printf("\t * Question 2.10\n");
-			printf("Inset Guset room number : ");
-			scanf("%d", &guestnum);
-			printf("Inset Guest Name [MAX 10] : ");
-			scanf("%s", guestname);
-			if(addguest(guestnum, guestname) == -1)
-				printf("Guest Add ERROR\n");
+			printf("\n\t ***** Question 2.10 *****\n");
+			if(emptyroom() != -1){
+				printf("\t  Inset Guset room number : ");
+				scanf("%d", &guestnum);
+				getchar();
+				printf("\t  Inset Guest Name [MAX 10] : ");
+				fgets(guestname, 100, stdin);
+				if(addguest(guestnum, guestname) == -1)
+					printf("\t ***** Guest Add ERROR ***** \n\n");
+			}
 		}
+		else if(num == 3)	break;
+		else	printf("\t Please try again....\n\n");
 	}
 
 

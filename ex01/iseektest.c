@@ -6,13 +6,14 @@
 #define NAMELENGTH 11	// 예약명 길이 ('\0' 포함)
 #define NROOMS 10	// 예약가능 방 갯수
 
+char namebuf[NAMELENGTH];	// 예약자 저장 버퍼
 char roominfo[NROOMS];	// 방 예약 확인 변수	0 : 예약가능 1: 예약불가능
 int infile = -1;	// file 정보 변수
 off_t offset = 0;	// offset 변수
 
 /******* 호텔예약 확인 함수 *******/
 char *getoccupier(int roomno){
-	char namebuf[NAMELENGTH];	// 예약자 저장 버퍼
+
 	ssize_t nread;
 	// file open
 	if((infile = open("residents", O_RDONLY)) == -1)
